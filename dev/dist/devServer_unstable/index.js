@@ -198,7 +198,7 @@ let serve = async (initialConfig, options) => {
           callback(null, chunk);
         }
       })).pipe(process.stdout, {
-        end: false,
+        end: false
       });
     }
     return newAppServer;

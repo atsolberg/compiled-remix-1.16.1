@@ -23,7 +23,12 @@ require('path');
 require('module');
 require('esbuild');
 require('esbuild-plugin-polyfill-node');
-require('fs');
+////////////////////////////////////////////////////////////////////////////////
+// SN EDIT
+// require('fs');
+var fs = require('fs');
+// SN EDIT END
+////////////////////////////////////////////////////////////////////////////////
 require('url');
 require('postcss-load-config');
 require('postcss');
@@ -55,6 +60,11 @@ var env = require('./env.js');
 var socket = require('./socket.js');
 var hmr = require('./hmr.js');
 var hdr = require('./hdr.js');
+////////////////////////////////////////////////////////////////////////////////
+// SN EDIT
+var https = require('https');
+// SN EDIT END
+////////////////////////////////////////////////////////////////////////////////
 
 function _interopDefaultLegacy (e) { return e && typeof e === 'object' && 'default' in e ? e : { 'default': e }; }
 
@@ -100,33 +110,75 @@ let detectBin = async () => {
 };
 let serve = async (initialConfig, options) => {
   await env.loadEnv(initialConfig.rootDirectory);
-  let websocket = socket.serve({
-    port: options.webSocketPort
-  });
+  //////////////////////////////////////////////////////////////////////////////
+  // SN EDIT
+  // let websocket = socket.serve({
+  //   port: options.webSocketPort
+  // });
+  // SN EDIT END
+  //////////////////////////////////////////////////////////////////////////////
   let httpOrigin = {
     scheme: options.httpScheme,
     host: options.httpHost,
-    port: options.httpPort
+    port: options.httpPort,
   };
+  //////////////////////////////////////////////////////////////////////////////
+  // SN EDIT
+  // - Moved express server up here because
+  // -- I need to create an https server that uses the dev express server
+  // -- then pass that https server to ./socket instead of the port option.
+  let httpServer = express__default['default']()
+    // handle `broadcastDevReady` messages
+    .use(express__default['default'].json()).post('/ping', (req, res) => {
+      var _state$manifest3;
+      let {
+        buildHash,
+      } = req.body;
+      if (typeof buildHash !== 'string') {
+        console.warn(`Unrecognized payload: ${req.body}`);
+        res.sendStatus(400);
+      }
+      if (buildHash === ((_state$manifest3 = state.manifest) === null || _state$manifest3 === void 0 ? void 0 : _state$manifest3.version)) {
+        var _state$appReady3;
+        (_state$appReady3 = state.appReady) === null || _state$appReady3 === void 0 ? void 0 : _state$appReady3.ok();
+      }
+      res.sendStatus(200);
+    });
+
+  const CERT_DIR = `${process.cwd()}/cert`;
+  console.log(`CERT_DIR: `, CERT_DIR);
+  let httpsServer = https.createServer({
+    // These could be remix.config.js#undstable_dev values: keyFilePath, certFilePath
+    key: fs.readFileSync(`${CERT_DIR}/key.pem`),
+    cert: fs.readFileSync(`${CERT_DIR}/cert.pem`),
+  }, httpServer)
+  httpsServer.listen(httpOrigin.port, () => {
+    console.log("Remix dev server ready");
+  });
+
+  let websocket = socket.serve({ server: httpsServer });
+  // SN EDIT END
+  //////////////////////////////////////////////////////////////////////////////
   let state = {};
   let bin = await detectBin();
   let startAppServer = command => {
     console.log(`> ${command}`);
-    let newAppServer = execa__default["default"].command(command, {
-      stdio: "pipe",
+    let newAppServer = execa__default['default'].command(command, {
+      stdio: 'pipe',
       env: {
-        NODE_ENV: "development",
-        PATH: bin + (process.platform === "win32" ? ";" : ":") + process.env.PATH,
-        REMIX_DEV_HTTP_ORIGIN: stringifyOrigin(httpOrigin)
+        NODE_ENV: 'development',
+        PATH: bin + (process.platform === 'win32' ? ';' : ':') + process.env.PATH,
+        REMIX_DEV_HTTP_ORIGIN: stringifyOrigin(httpOrigin),
+        FORCE_COLOR: '1'
       },
       // https://github.com/sindresorhus/execa/issues/433
-      windowsHide: false
+      windowsHide: false,
     });
     if (newAppServer.stdin) process.stdin.pipe(newAppServer.stdin, {
-      end: true
+      end: true,
     });
     if (newAppServer.stderr) newAppServer.stderr.pipe(process.stderr, {
-      end: false
+      end: false,
     });
     if (newAppServer.stdout) {
       newAppServer.stdout.pipe(new stream__namespace.PassThrough({
@@ -144,9 +196,9 @@ let serve = async (initialConfig, options) => {
             }
           }
           callback(null, chunk);
-        }
+        },
       })).pipe(process.stdout, {
-        end: false
+        end: false,
       });
     }
     return newAppServer;
@@ -154,18 +206,18 @@ let serve = async (initialConfig, options) => {
   let dispose = await watch.watch({
     config: initialConfig,
     options: {
-      mode: "development",
+      mode: 'development',
       sourcemap: true,
       onWarning: warnOnce.warnOnce,
       devHttpOrigin: httpOrigin,
-      devWebSocketPort: options.webSocketPort
-    }
+      devWebSocketPort: options.webSocketPort,
+    },
   }, {
     onBuildStart: async ctx => {
       var _state$appReady2;
       (_state$appReady2 = state.appReady) === null || _state$appReady2 === void 0 ? void 0 : _state$appReady2.err();
       clean(ctx.config);
-      websocket.log(state.prevManifest ? "Rebuilding..." : "Building...");
+      websocket.log(state.prevManifest ? 'Rebuilding...' : 'Building...');
       state.hdr = hdr.detectLoaderChanges(ctx);
     },
     onBuildManifest: manifest => {
@@ -174,7 +226,7 @@ let serve = async (initialConfig, options) => {
     onBuildFinish: async (ctx, durationMs, succeeded) => {
       var _state$manifest2;
       if (!succeeded) return;
-      websocket.log((state.prevManifest ? "Rebuilt" : "Built") + ` in ${prettyMs__default["default"](durationMs)}`);
+      websocket.log((state.prevManifest ? 'Rebuilt' : 'Built') + ` in ${prettyMs__default['default'](durationMs)}`);
       state.appReady = channel.create();
       let start = Date.now();
       console.log(`Waiting for app server (${(_state$manifest2 = state.manifest) === null || _state$manifest2 === void 0 ? void 0 : _state$manifest2.version})`);
@@ -183,20 +235,20 @@ let serve = async (initialConfig, options) => {
         state.appServer = startAppServer(options.command);
       }
       let {
-        ok
+        ok,
       } = await state.appReady.result;
       // result not ok -> new build started before this one finished. do not process outdated manifest
       let loaderHashes = await state.hdr;
       if (ok) {
-        console.log(`App server took ${prettyMs__default["default"](Date.now() - start)}`);
+        console.log(`App server took ${prettyMs__default['default'](Date.now() - start)}`);
         if (state.manifest && loaderHashes && state.prevManifest) {
           let updates = hmr.updates(ctx.config, state.manifest, state.prevManifest, loaderHashes, state.prevLoaderHashes);
           websocket.hmr(state.manifest, updates);
           let hdr = updates.some(u => u.revalidate);
-          console.log("> HMR" + (hdr ? " + HDR" : ""));
+          console.log('> HMR' + (hdr ? ' + HDR' : ''));
         } else if (state.prevManifest !== undefined) {
           websocket.reload();
-          console.log("> Live reload");
+          console.log('> Live reload');
         }
       }
       state.prevManifest = state.manifest;
@@ -204,28 +256,34 @@ let serve = async (initialConfig, options) => {
     },
     onFileCreated: file => websocket.log(`File created: ${relativePath(file)}`),
     onFileChanged: file => websocket.log(`File changed: ${relativePath(file)}`),
-    onFileDeleted: file => websocket.log(`File deleted: ${relativePath(file)}`)
+    onFileDeleted: file => websocket.log(`File deleted: ${relativePath(file)}`),
   });
-  let httpServer = express__default["default"]()
-  // handle `broadcastDevReady` messages
-  .use(express__default["default"].json()).post("/ping", (req, res) => {
-    var _state$manifest3;
-    let {
-      buildHash
-    } = req.body;
-    if (typeof buildHash !== "string") {
-      console.warn(`Unrecognized payload: ${req.body}`);
-      res.sendStatus(400);
-    }
-    if (buildHash === ((_state$manifest3 = state.manifest) === null || _state$manifest3 === void 0 ? void 0 : _state$manifest3.version)) {
-      var _state$appReady3;
-      (_state$appReady3 = state.appReady) === null || _state$appReady3 === void 0 ? void 0 : _state$appReady3.ok();
-    }
-    res.sendStatus(200);
-  }).listen(httpOrigin.port, () => {
-    console.log("Remix dev server ready");
-  });
-  return new Promise(() => {}).finally(async () => {
+
+  //////////////////////////////////////////////////////////////////////////////
+  // SN EDIT - moved up above
+  // let httpServer = express__default["default"]()
+  // // handle `broadcastDevReady` messages
+  // .use(express__default["default"].json()).post("/ping", (req, res) => {
+  //   var _state$manifest3;
+  //   let {
+  //     buildHash
+  //   } = req.body;
+  //   if (typeof buildHash !== "string") {
+  //     console.warn(`Unrecognized payload: ${req.body}`);
+  //     res.sendStatus(400);
+  //   }
+  //   if (buildHash === ((_state$manifest3 = state.manifest) === null || _state$manifest3 === void 0 ? void 0 : _state$manifest3.version)) {
+  //     var _state$appReady3;
+  //     (_state$appReady3 = state.appReady) === null || _state$appReady3 === void 0 ? void 0 : _state$appReady3.ok();
+  //   }
+  //   res.sendStatus(200);
+  // }).listen(httpOrigin.port, () => {
+  //   console.log("Remix dev server ready");
+  // });
+  // SN EDIT END
+  //////////////////////////////////////////////////////////////////////////////
+  return new Promise(() => {
+  }).finally(async () => {
     await kill(state.appServer);
     websocket.close();
     httpServer.close();

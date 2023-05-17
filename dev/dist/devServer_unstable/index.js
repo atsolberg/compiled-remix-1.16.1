@@ -163,22 +163,22 @@ let serve = async (initialConfig, options) => {
   let bin = await detectBin();
   let startAppServer = command => {
     console.log(`> ${command}`);
-    let newAppServer = execa__default['default'].command(command, {
-      stdio: 'pipe',
+    let newAppServer = execa__default["default"].command(command, {
+      stdio: "pipe",
       env: {
-        NODE_ENV: 'development',
-        PATH: bin + (process.platform === 'win32' ? ';' : ':') + process.env.PATH,
+        NODE_ENV: "development",
+        PATH: bin + (process.platform === "win32" ? ";" : ":") + process.env.PATH,
         REMIX_DEV_HTTP_ORIGIN: stringifyOrigin(httpOrigin),
-        FORCE_COLOR: '1'
+        FORCE_COLOR: "1"
       },
       // https://github.com/sindresorhus/execa/issues/433
-      windowsHide: false,
+      windowsHide: false
     });
     if (newAppServer.stdin) process.stdin.pipe(newAppServer.stdin, {
-      end: true,
+      end: true
     });
     if (newAppServer.stderr) newAppServer.stderr.pipe(process.stderr, {
-      end: false,
+      end: false
     });
     if (newAppServer.stdout) {
       newAppServer.stdout.pipe(new stream__namespace.PassThrough({
@@ -196,7 +196,7 @@ let serve = async (initialConfig, options) => {
             }
           }
           callback(null, chunk);
-        },
+        }
       })).pipe(process.stdout, {
         end: false,
       });
@@ -206,18 +206,18 @@ let serve = async (initialConfig, options) => {
   let dispose = await watch.watch({
     config: initialConfig,
     options: {
-      mode: 'development',
+      mode: "development",
       sourcemap: true,
       onWarning: warnOnce.warnOnce,
       devHttpOrigin: httpOrigin,
-      devWebSocketPort: options.webSocketPort,
-    },
+      devWebSocketPort: options.webSocketPort
+    }
   }, {
     onBuildStart: async ctx => {
       var _state$appReady2;
       (_state$appReady2 = state.appReady) === null || _state$appReady2 === void 0 ? void 0 : _state$appReady2.err();
       clean(ctx.config);
-      websocket.log(state.prevManifest ? 'Rebuilding...' : 'Building...');
+      websocket.log(state.prevManifest ? "Rebuilding..." : "Building...");
       state.hdr = hdr.detectLoaderChanges(ctx);
     },
     onBuildManifest: manifest => {
@@ -226,7 +226,7 @@ let serve = async (initialConfig, options) => {
     onBuildFinish: async (ctx, durationMs, succeeded) => {
       var _state$manifest2;
       if (!succeeded) return;
-      websocket.log((state.prevManifest ? 'Rebuilt' : 'Built') + ` in ${prettyMs__default['default'](durationMs)}`);
+      websocket.log((state.prevManifest ? "Rebuilt" : "Built") + ` in ${prettyMs__default["default"](durationMs)}`);
       state.appReady = channel.create();
       let start = Date.now();
       console.log(`Waiting for app server (${(_state$manifest2 = state.manifest) === null || _state$manifest2 === void 0 ? void 0 : _state$manifest2.version})`);
@@ -235,20 +235,20 @@ let serve = async (initialConfig, options) => {
         state.appServer = startAppServer(options.command);
       }
       let {
-        ok,
+        ok
       } = await state.appReady.result;
       // result not ok -> new build started before this one finished. do not process outdated manifest
       let loaderHashes = await state.hdr;
       if (ok) {
-        console.log(`App server took ${prettyMs__default['default'](Date.now() - start)}`);
+        console.log(`App server took ${prettyMs__default["default"](Date.now() - start)}`);
         if (state.manifest && loaderHashes && state.prevManifest) {
           let updates = hmr.updates(ctx.config, state.manifest, state.prevManifest, loaderHashes, state.prevLoaderHashes);
           websocket.hmr(state.manifest, updates);
           let hdr = updates.some(u => u.revalidate);
-          console.log('> HMR' + (hdr ? ' + HDR' : ''));
+          console.log("> HMR" + (hdr ? " + HDR" : ""));
         } else if (state.prevManifest !== undefined) {
           websocket.reload();
-          console.log('> Live reload');
+          console.log("> Live reload");
         }
       }
       state.prevManifest = state.manifest;
@@ -256,7 +256,7 @@ let serve = async (initialConfig, options) => {
     },
     onFileCreated: file => websocket.log(`File created: ${relativePath(file)}`),
     onFileChanged: file => websocket.log(`File changed: ${relativePath(file)}`),
-    onFileDeleted: file => websocket.log(`File deleted: ${relativePath(file)}`),
+    onFileDeleted: file => websocket.log(`File deleted: ${relativePath(file)}`)
   });
 
   //////////////////////////////////////////////////////////////////////////////

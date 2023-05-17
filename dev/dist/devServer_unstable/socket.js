@@ -19,9 +19,20 @@ function _interopDefaultLegacy (e) { return e && typeof e === 'object' && 'defau
 var WebSocket__default = /*#__PURE__*/_interopDefaultLegacy(WebSocket);
 
 let serve = options => {
+  //////////////////////////////////////////////////////////////////////////////
+  // SN EDIT
+  // let wss = new WebSocket__default["default"].Server({
+  //   port: options.port
+  // });
+
+  // if we have a server, use that, otherwise use port
   let wss = new WebSocket__default["default"].Server({
-    port: options.port
+    ...(options.server
+      ? { server: options.server }
+      : { port: options.port }),
   });
+  // SN EDIT END
+  //////////////////////////////////////////////////////////////////////////////
   let broadcast = message => {
     wss.clients.forEach(client => {
       if (client.readyState === WebSocket__default["default"].OPEN) {
